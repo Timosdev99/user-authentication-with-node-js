@@ -53,13 +53,13 @@ catch(err){
 
 
 
-app.post('/register', async (req, res, next) => {
+app.post('/register', async (req, res) => {
     try{
         const {username, password, email, age, gender} = req.body;
         const existinguser = await user.findone({email})
 
         if(existinguser){
-           return  res.statusCode(409).json({message: "user already exist"})
+           return  res.json({message: "user already exist"})
         }
          
         const  salt = await bcrypt.gensalt(10)
@@ -77,7 +77,7 @@ app.post('/register', async (req, res, next) => {
         })
 
         await newuser.save()
-      return res.statusCode(200).json({message: "new user has been created"})
+      return res.json({message: "new user has been created"})
 
     }
     catch{
@@ -93,7 +93,7 @@ app.post('/register', async (req, res, next) => {
 
 
 
-app.post("/login", async(req,res, next) => {
+app.post("/login", async(req,res) => {
     try{
        const {email, password} = req.body;
        const existinguser = await user.findone({email})
@@ -150,7 +150,7 @@ app.get('/getmyprofile', authtoken, async (req, res) => {
 app.get('/refresh_token', async(req, res, next) => {
     const token = req.cookies.refreshtoken
     if(!token) {
-        res.statusCode(501).json({message: "no token found"})
+      return res.status(404).json({message: "no token found"})
     }
 
     try{
