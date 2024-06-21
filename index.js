@@ -8,8 +8,7 @@ require('./db')
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
-
-
+const User = require('./MODELS/auth')
 
 
 app.use(cookieParser())
@@ -28,7 +27,7 @@ const token = req.header.authorization;
 const {id} = req.body
  
  if(!token) 
-  return   res.statusCode(401).json({message: "invalid token"})
+  return   res.status(401).json({message: "invalid token"})
  
 
 try{
@@ -44,7 +43,7 @@ try{
 }
 catch(err){
          console.log(err)
-         res.statusCode(401).json({message: "invalid token"})
+         res.status(401).json({message: "invalid token"})
 }
 
 
@@ -56,19 +55,19 @@ catch(err){
 app.post('/register', async (req, res) => {
     try{
         const {username, password, email, age, gender} = req.body;
-        const existinguser = await user.findone({email})
+        const existinguser = await User.findOne({email})
 
         if(existinguser){
-           return  res.json({message: "user already exist"})
+           return  res.status(409).json({message: "user already exist"})
         }
          
-        const  salt = await bcrypt.gensalt(10)
+        const  salt = await bcrypt.genSalt(10)
         const hashpassword = await bcrypt.hash(password, salt)
 
         console.log('salt:', salt)
         console.log('hashpassword:', hashpassword )
 
-        const newuser = new user({
+        const newuser = new User({
             username, 
             password: hashpassword, 
             email,
@@ -77,13 +76,11 @@ app.post('/register', async (req, res) => {
         })
 
         await newuser.save()
-      return res.json({message: "new user has been created"})
+      return res.status(200).json({message: "new user has been created"})
 
     }
-    catch{
-       (err) => {
-        res.statusCode(500).json({message: err.message})
-       }
+    catch (err) {
+      res.status(500).json({ message: err.message });
     }
 
 })
@@ -96,17 +93,17 @@ app.post('/register', async (req, res) => {
 app.post("/login", async(req,res) => {
     try{
        const {email, password} = req.body;
-       const existinguser = await user.findone({email})
+       const existinguser = await User.findOne({email})
 
        if(!existinguser) {
-        return res.statusCode(500).json({message: "user those not eist"})
+        return res.status(500).json({message: "user those not eist"})
        }
 
 
        const checkpassword = await bcrypt.compare(password, existinguser.password)
 
        if(!checkpassword) {
-        return  res.statusCode(500).json({message: "invalid password"})
+        return  res.status(500).json({message: "invalid password"})
        }
 
 
@@ -115,13 +112,13 @@ app.post("/login", async(req,res) => {
     })
 
 
-    const refreshtoken = jwt.sign({id: existinguser._id}, JSON_REFRESH_WEB_SECRET,)
+    const refreshtoken = jwt.sign({id: existinguser._id}, process.env.JSON_REFRESH_WEB_SECRET)
     existinguser.refreshtoken = refreshtoken
      await existinguser.save()
      res.cookie('refreshtoken', refreshtoken, {httpOnly: true, path: './refresh_token'})
 
 
-    res.statusCode(200).json({
+    res.status(200).json({   
         accesstoken,
         refreshtoken,
         message: "login succesful"
@@ -131,17 +128,17 @@ app.post("/login", async(req,res) => {
    
 
     }
-    catch{(err) =>{
-        res.statusCode(500).json({message: err.message})
-    }}
+    catch(err){ 
+        res.status(500).json({message: err.message})
+    }
 })
 
 
 app.get('/getmyprofile', authtoken, async (req, res) => {
     const {id} = req.body
-    const user = await user.findById(id)
+    const user = await User.findById(id)
     user.password = undefined
-    res.statusCode(200).json({user})
+    res.status(200).json({user})
 })
 
 
@@ -154,14 +151,14 @@ app.get('/refresh_token', async(req, res, next) => {
     }
 
     try{
-            const decoded =   jwt.verify(token, JSON_REFRESH_WEB_SECRET )
+            const decoded =   jwt.verify(token, process.env.JSON_REFRESH_WEB_SECRET )
 
               if(id && decoded.id !== id) {
                 console.log('invalid token')
               }
               
               const id = decoded.id
-             const existinguser = await user.findById(id)
+             const existinguser = await User.findById(id)
               if(!existinguser || token !== existinguser.refreshtoken){
                 console.err('invalid token')
               }
@@ -171,13 +168,13 @@ app.get('/refresh_token', async(req, res, next) => {
             })
         
         
-            const refreshtoken = jwt.sign({id: existinguser._id}, JSON_REFRESH_WEB_SECRET,)
+            const refreshtoken = jwt.sign({id: existinguser._id},  process.env.JSON_REFRESH_WEB_SECRET,)
             existinguser.refreshtoken = refreshtoken
              await existinguser.save()
              res.cookie('refreshtoken', refreshtoken, {httpOnly: true, path: './refresh_token'})
         
         
-            res.statusCode(200).json({
+            res.status(200).json({
                 accesstoken,
                 refreshtoken,
                 message: "login succesful"
@@ -188,8 +185,8 @@ app.get('/refresh_token', async(req, res, next) => {
               next()
     }
 
-    catch{
-
+    catch(err){
+             res.status(401).json({message: err.message})
     }
 })
 
